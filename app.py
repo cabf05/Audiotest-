@@ -4,9 +4,8 @@ import requests
 import time
 import os
 import io
-import numpy as np
 from pydub import AudioSegment
-from streamlit_webrtc import webrtc_streamer, AudioProcessorBase
+from streamlit_webrtc import webrtc_streamer, WebRtcMode, ClientSettings
 
 # Obter a API key do AssemblyAI dos secrets do Streamlit Cloud
 aai_api_key = st.secrets["assemblyai"]["api_key"]
@@ -69,15 +68,6 @@ def transcribe_with_wait(upload_url, language_code):
             st.info("⌛ Aguardando transcrição...")
             time.sleep(5)
 
-class AudioProcessor(AudioProcessorBase):
-    """ Processador de áudio para capturar e salvar o áudio gravado """
-    def __init__(self):
-        self.audio_frames = []
-
-    def recv(self, frame):
-        self.audio_frames.append(frame.to_ndarray())
-        return frame
-
 if page == "Transcrição de Áudio":
     st.title("🎙️ Transcrição de Áudio com AssemblyAI")
     option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo", "Gravar Áudio"))
@@ -87,16 +77,15 @@ if page == "Transcrição de Áudio":
 
     elif option == "Gravar Áudio":
         st.write("🎤 Clique no botão abaixo para gravar o áudio")
-        webrtc_ctx = webrtc_streamer(key="audio", mode=webrtc_streamer.Mode.SENDRECV, audio_processor_factory=AudioProcessor)
-
-        if webrtc_ctx and webrtc_ctx.state.playing:
-            audio_data = np.concatenate(webrtc_ctx.audio_processor.audio_frames, axis=0)
-            audio_bytes = io.BytesIO()
-            AudioSegment(audio_data.tobytes(), sample_width=2, frame_rate=16000, channels=1).export(audio_bytes, format="wav")
-            st.audio(audio_bytes.getvalue(), format="audio/wav")
-            recorded_audio = audio_bytes.getvalue()
-        else:
-            recorded_audio = None
+        webrtc_ctx = webrtc_streamer(
+            key="audio",
+            mode=WebRtcMode.SENDONLY,
+            media_stream_constraints={"audio": True, "video": False"},
+            client_settings=ClientSettings(
+                rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
+                media_stream_constraints={"audio": True, "video": False"}
+            ),
+        )
 
     else:
         audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "mp3", "m4a", "mp4", "ogg"])
@@ -113,10 +102,13 @@ if page == "Transcrição de Áudio":
                 st.error("❌ Insira uma URL válida.")
 
         elif option == "Gravar Áudio":
-            if recorded_audio is not None:
+            if webrtc_ctx.audio_receiver:
+                audio_frames = webrtc_ctx.audio_receiver.get_frames()
+                audio_data = b"".join([frame.to_ndarray().tobytes() for frame in audio_frames])
+
                 temp_file = "recorded_audio.wav"
                 with open(temp_file, "wb") as f:
-                    f.write(recorded_audio)
+                    f.write(audio_data)
 
                 upload_url = upload_to_assemblyai(temp_file)
 
