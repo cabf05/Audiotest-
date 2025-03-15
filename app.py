@@ -3,20 +3,20 @@ import assemblyai as aai
 import os
 
 # Obter a API key do AssemblyAI dos secrets do Streamlit Cloud
-aai_api_key = st.secrets["assemblyai_api_key"]
+aai_api_key = st.secrets["assemblyai"]["api_key"]
 aai.settings.api_key = aai_api_key
 
 st.title("Transcrição de Áudio com AssemblyAI")
 
 st.write("Escolha entre fornecer a URL do áudio ou fazer upload do arquivo.")
 
-# Seleção da fonte de áudio
+# Permitir upload de arquivos, incluindo ogg
 option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo"))
 
 if option == "URL":
     audio_url = st.text_input("Insira a URL do áudio:")
 else:
-    audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "ogg", "mp3", "m4a", "mp4"])
+    audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "mp3", "m4a", "mp4", "ogg"])
 
 if st.button("Transcrever"):
     if option == "URL":
