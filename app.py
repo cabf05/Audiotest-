@@ -5,6 +5,7 @@ import time
 import os
 from pydub import AudioSegment
 import io
+from streamlit_audio_recorder import st_audio_recorder  # Biblioteca para gravar áudio
 
 # Obter a API key do AssemblyAI dos secrets do Streamlit Cloud
 aai_api_key = st.secrets["assemblyai"]["api_key"]
@@ -71,10 +72,19 @@ def transcribe_with_wait(upload_url, language_code):
 
 if page == "Transcrição de Áudio":
     st.title("🎙️ Transcrição de Áudio com AssemblyAI")
-    option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo"))
+
+    option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo", "Gravar Áudio"))
 
     if option == "URL":
         audio_url = st.text_input("Insira a URL do áudio:")
+
+    elif option == "Gravar Áudio":
+        st.write("🎤 Clique no botão abaixo para gravar o áudio")
+        recorded_audio = st_audio_recorder(pause_threshold=2.0, sample_rate=16000)
+
+        if recorded_audio is not None:
+            st.audio(recorded_audio, format="audio/wav")
+
     else:
         audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "mp3", "m4a", "mp4", "ogg"])
 
@@ -88,6 +98,27 @@ if page == "Transcrição de Áudio":
                     st.write(transcript_text)
             else:
                 st.error("❌ Insira uma URL válida.")
+
+        elif option == "Gravar Áudio":
+            if recorded_audio is not None:
+                temp_file = "recorded_audio.wav"
+                with open(temp_file, "wb") as f:
+                    f.write(recorded_audio)
+
+                upload_url = upload_to_assemblyai(temp_file)
+
+                if upload_url:
+                    st.info(f"📡 Enviando para transcrição em {language}...")
+                    transcript_text = transcribe_with_wait(upload_url, language_code)
+
+                    if transcript_text:
+                        st.subheader("📝 Transcrição:")
+                        st.write(transcript_text)
+
+                os.remove(temp_file)
+            else:
+                st.error("❌ Nenhum áudio gravado.")
+
         else:
             if audio_file:
                 temp_file = "temp_audio"
