@@ -16,7 +16,7 @@ option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo"))
 if option == "URL":
     audio_url = st.text_input("Insira a URL do áudio:")
 else:
-    audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "mp3", "m4a", "mp4"])
+    audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "ogg", "mp3", "m4a", "mp4"])
 
 if st.button("Transcrever"):
     if option == "URL":
