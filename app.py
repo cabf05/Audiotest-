@@ -319,22 +319,4 @@ if page == "Transcrição de Áudio":
                 if os.path.exists(temp_path):
                     os.unlink(temp_path)
 
-# Página de Conversor OGG para WAV
-elif page == "Conversor OGG para WAV":
-    st.title("🔄 Conversor de Áudio OGG para WAV")
-    st.write("""
-    Este conversor permite transformar arquivos OGG em arquivos WAV, 
-    que são mais amplamente compatíveis com diferentes sistemas.
-    """)
-    
-    ogg_file = st.file_uploader("Faça upload do arquivo OGG", type=["ogg"])
 
-    if ogg_file:
-        st.write("Arquivo OGG carregado!")
-        
-        if st.button("🔄 Converter para WAV"):
-            st.info("🔄 Convertendo arquivo OGG para WAV...")
-            
-            try:
-                # Salvar o arquivo OGG temporariamente
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp_file
