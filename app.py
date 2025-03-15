@@ -1,4 +1,5 @@
 import streamlit as st
+import assemblyai as aaiimport streamlit as st
 import assemblyai as aai
 import requests
 import time
@@ -332,4 +333,9 @@ elif page == "Conversor OGG para WAV":
     if ogg_file:
         st.write("Arquivo OGG carregado!")
         
-        if st.button("🔄
+        if st.button("🔄 Converter para WAV"):
+            st.info("🔄 Convertendo arquivo OGG para WAV...")
+            
+            try:
+                # Salvar o arquivo OGG temporariamente
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".ogg") as tmp_file
