@@ -1,4 +1,4 @@
 streamlit
 assemblyai
 pydub
-ffmpeg
+ffmpeg-python
