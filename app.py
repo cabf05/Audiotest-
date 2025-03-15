@@ -1,9 +1,10 @@
 import streamlit as st
 import assemblyai as aai
 import requests
-import io
+import time
 import os
 from pydub import AudioSegment
+import io
 
 # Obter a API key do AssemblyAI dos secrets do Streamlit Cloud
 aai_api_key = st.secrets["assemblyai"]["api_key"]
@@ -12,21 +13,64 @@ aai.settings.api_key = aai_api_key
 st.sidebar.title("Menu")
 page = st.sidebar.radio("Escolha uma opção", ["Transcrição de Áudio", "Conversor OGG para WAV"])
 
+# Opção para escolher o idioma do áudio
+language_map = {
+    "Português": "pt",
+    "Inglês": "en",
+    "Espanhol": "es",
+    "Francês": "fr"
+}
+language = st.sidebar.selectbox("Selecione o idioma do áudio:", list(language_map.keys()))
+language_code = language_map[language]
+
 def upload_to_assemblyai(file_path):
     """ Faz upload do arquivo para a API do AssemblyAI e retorna a URL """
     headers = {"authorization": aai_api_key}
     with open(file_path, "rb") as f:
         response = requests.post("https://api.assemblyai.com/v2/upload", headers=headers, files={"file": f})
-    
+
     if response.status_code == 200:
-        return response.json()["upload_url"]
+        upload_url = response.json()["upload_url"]
+        st.write(f"✅ Arquivo enviado com sucesso: [Ver arquivo]({upload_url})")
+        return upload_url
     else:
-        st.error(f"Erro ao fazer upload do arquivo. Código {response.status_code}")
+        st.error(f"❌ Erro no upload. Código {response.status_code}")
         return None
+
+def transcribe_with_wait(upload_url, language_code):
+    """ Envia a solicitação de transcrição e aguarda até estar pronta """
+    headers = {"authorization": aai_api_key, "content-type": "application/json"}
+    
+    # Solicita a transcrição com o idioma correto
+    response = requests.post(
+        "https://api.assemblyai.com/v2/transcript", 
+        json={"audio_url": upload_url, "language_code": language_code}, 
+        headers=headers
+    )
+
+    if response.status_code != 200:
+        st.error("❌ Erro ao solicitar transcrição.")
+        return None
+
+    transcript_id = response.json()["id"]
+    st.write(f"📡 Transcrição iniciada. ID: {transcript_id}")
+
+    # Aguardar a transcrição estar pronta
+    while True:
+        status_response = requests.get(f"https://api.assemblyai.com/v2/transcript/{transcript_id}", headers=headers)
+        status_json = status_response.json()
+
+        if status_json["status"] == "completed":
+            return status_json["text"]
+        elif status_json["status"] == "failed":
+            st.error("❌ Erro na transcrição do áudio.")
+            return None
+        else:
+            st.info("⌛ Aguardando transcrição...")
+            time.sleep(5)
 
 if page == "Transcrição de Áudio":
     st.title("🎙️ Transcrição de Áudio com AssemblyAI")
-
     option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo"))
 
     if option == "URL":
@@ -37,47 +81,41 @@ if page == "Transcrição de Áudio":
     if st.button("Transcrever"):
         if option == "URL":
             if audio_url:
-                st.info("Transcrevendo áudio, aguarde...")
-                transcriber = aai.Transcriber()
-                transcript = transcriber.transcribe(audio_url)
-                st.subheader("Transcrição:")
-                st.write(transcript.text)
+                st.info(f"Transcrevendo áudio em {language}...")
+                transcript_text = transcribe_with_wait(audio_url, language_code)
+                if transcript_text:
+                    st.subheader("📝 Transcrição:")
+                    st.write(transcript_text)
             else:
-                st.error("Por favor, insira a URL do áudio.")
+                st.error("❌ Insira uma URL válida.")
         else:
             if audio_file:
-                # Salva o arquivo temporariamente
                 temp_file = "temp_audio"
                 with open(temp_file, "wb") as f:
                     f.write(audio_file.getbuffer())
 
-                # Se for OGG, converte antes de enviar para transcrição
                 if audio_file.name.endswith(".ogg"):
-                    st.info("Convertendo arquivo OGG para WAV...")
+                    st.info("🔄 Convertendo OGG para WAV...")
                     temp_wav = "converted_audio.wav"
                     audio = AudioSegment.from_file(temp_file, format="ogg")
                     audio.export(temp_wav, format="wav")
                     temp_file = temp_wav
 
-                # Faz o upload do arquivo para o AssemblyAI
                 upload_url = upload_to_assemblyai(temp_file)
 
                 if upload_url:
-                    st.info("Transcrevendo áudio, aguarde...")
-                    transcriber = aai.Transcriber()
-                    transcript = transcriber.transcribe(upload_url)
-                    
-                    st.subheader("Transcrição:")
-                    st.write(transcript.text)
-                else:
-                    st.error("Falha no envio do arquivo para AssemblyAI.")
+                    st.info(f"📡 Enviando para transcrição em {language}...")
+                    transcript_text = transcribe_with_wait(upload_url, language_code)
 
-                # Remover arquivos temporários
+                    if transcript_text:
+                        st.subheader("📝 Transcrição:")
+                        st.write(transcript_text)
+
                 os.remove(temp_file)
                 if os.path.exists("converted_audio.wav"):
                     os.remove("converted_audio.wav")
             else:
-                st.error("Por favor, faça o upload de um arquivo de áudio.")
+                st.error("❌ Faça o upload de um arquivo de áudio.")
 
 elif page == "Conversor OGG para WAV":
     st.title("🔄 Conversor de Áudio OGG para WAV")
@@ -85,15 +123,12 @@ elif page == "Conversor OGG para WAV":
 
     if ogg_file:
         if st.button("Converter para WAV"):
-            st.info("Convertendo arquivo OGG para WAV...")
+            st.info("🔄 Convertendo arquivo OGG para WAV...")
 
-            # Ler o arquivo OGG da memória
             audio = AudioSegment.from_file(io.BytesIO(ogg_file.getbuffer()), format="ogg")
-
-            # Salvar como WAV na memória
             wav_io = io.BytesIO()
             audio.export(wav_io, format="wav")
             wav_io.seek(0)
 
-            st.success("Conversão concluída! Baixe o arquivo WAV abaixo.")
+            st.success("✅ Conversão concluída! Baixe o arquivo WAV abaixo.")
             st.download_button(label="📥 Baixar WAV", data=wav_io, file_name="convertido.wav", mime="audio/wav")
