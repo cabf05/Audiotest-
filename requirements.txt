@@ -2,4 +2,4 @@ streamlit
 assemblyai
 pydub
 ffmpeg-python
-streamlit-audio-recorder
+streamlit-webrtc
