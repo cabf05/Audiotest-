@@ -80,10 +80,10 @@ if page == "Transcrição de Áudio":
         webrtc_ctx = webrtc_streamer(
             key="audio",
             mode=WebRtcMode.SENDONLY,
-            media_stream_constraints={"audio": True, "video": False},
+            media_stream_constraints={"audio": True, "video": False},  # Removida aspas extras aqui ✅
             client_settings=ClientSettings(
                 rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
-                media_stream_constraints={"audio": True, "video": False"}
+                media_stream_constraints={"audio": True, "video": False}  # Removida aspas extras aqui ✅
             ),
         )
 
@@ -102,7 +102,7 @@ if page == "Transcrição de Áudio":
                 st.error("❌ Insira uma URL válida.")
 
         elif option == "Gravar Áudio":
-            if webrtc_ctx.audio_receiver:
+            if webrtc_ctx and webrtc_ctx.audio_receiver:
                 audio_frames = webrtc_ctx.audio_receiver.get_frames()
                 audio_data = b"".join([frame.to_ndarray().tobytes() for frame in audio_frames])
 
