@@ -69,10 +69,8 @@ if page == "Transcrição de Áudio":
     elif option == "Gravar Áudio":
         st.write("🎤 Grave seu áudio abaixo:")
         webrtc_ctx = webrtc_streamer(
-            key="audio",
+            key="audio-recorder",
             mode=WebRtcMode.SENDONLY,
-            audio=True,
-            video=False,
             client_settings=ClientSettings(
                 rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
                 media_stream_constraints={"audio": True, "video": False}
@@ -80,20 +78,21 @@ if page == "Transcrição de Áudio":
         )
         if webrtc_ctx.audio_receiver and st.button("Transcrever"):
             audio_frames = []
-            for frame in webrtc_ctx.audio_receiver.get_frames(timeout=10):
+            for frame in webrtc_ctx.audio_receiver.get_frames():
                 audio_frames.append(frame.to_ndarray().tobytes())
             if audio_frames:
                 audio_data = b"".join(audio_frames)
-                with open("temp_audio.wav", "wb") as f:
+                with open("temp_audio.raw", "wb") as f:
                     f.write(audio_data)
-                AudioSegment.from_file("temp_audio.wav").export("recorded_audio.wav", format="wav")
+                audio = AudioSegment.from_raw("temp_audio.raw", sample_width=2, frame_rate=44100, channels=1)
+                audio.export("recorded_audio.wav", format="wav")
                 upload_url = upload_to_assemblyai("recorded_audio.wav")
                 if upload_url:
                     transcript_text = transcribe_with_wait(upload_url, language_code)
                     if transcript_text:
                         st.subheader("📝 Transcrição:")
                         st.write(transcript_text)
-                os.remove("temp_audio.wav")
+                os.remove("temp_audio.raw")
                 os.remove("recorded_audio.wav")
             else:
                 st.error("❌ Nenhum áudio gravado.")
