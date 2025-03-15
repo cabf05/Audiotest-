@@ -1,9 +1,5 @@
-streamlit
-assemblyai
-requests
-pydub
-numpy
-soundfile
-streamlit-webrtc
-av
-python-dotenv
+streamlit==1.31.0
+assemblyai==0.33.0
+requests==2.31.0
+pydub==0.25.1
+streamlit-webrtc==0.47.7
