@@ -1,5 +1,3 @@
 streamlit
-vosk
-soundfile
-numpy
-requests
+assemblyai
+
