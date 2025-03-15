@@ -1,68 +1,44 @@
 import streamlit as st
-import soundfile as sf
-import numpy as np
-import io
-import requests
-import zipfile
+import assemblyai as aai
 import os
-from vosk import Model, KaldiRecognizer
 
-# URL do modelo Vosk em português no GitHub
-MODEL_URL = "https://github.com/alphacephei/vosk-api/releases/download/v0.3.32/vosk-model-small-pt-0.3.32.zip"
-MODEL_PATH = "vosk-model-small-pt"
+# Obter a API key do AssemblyAI dos secrets do Streamlit Cloud
+aai_api_key = st.secrets["assemblyai_api_key"]
+aai.settings.api_key = aai_api_key
 
-# Função para verificar se o arquivo baixado é um ZIP válido
-def download_and_extract():
-    st.info("Baixando o modelo, aguarde...")
-    response = requests.get(MODEL_URL, stream=True)
-    if response.status_code == 200:
-        with open("model.zip", "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                f.write(chunk)
-        try:
-            # Tentar extrair o arquivo ZIP
-            with zipfile.ZipFile("model.zip", "r") as zip_ref:
-                zip_ref.extractall(".")
-            os.remove("model.zip")
-        except zipfile.BadZipFile:
-            st.error("Falha ao extrair o modelo. O arquivo baixado não é um ZIP válido.")
-            return False
-        return True
+st.title("Transcrição de Áudio com AssemblyAI")
+
+st.write("Escolha entre fornecer a URL do áudio ou fazer upload do arquivo.")
+
+# Seleção da fonte de áudio
+option = st.radio("Selecione a fonte de áudio:", ("URL", "Upload de arquivo"))
+
+if option == "URL":
+    audio_url = st.text_input("Insira a URL do áudio:")
+else:
+    audio_file = st.file_uploader("Faça upload do arquivo de áudio", type=["wav", "mp3", "m4a", "mp4"])
+
+if st.button("Transcrever"):
+    if option == "URL":
+        if audio_url:
+            st.info("Transcrevendo áudio, aguarde...")
+            transcriber = aai.Transcriber()
+            transcript = transcriber.transcribe(audio_url)
+            st.subheader("Transcrição:")
+            st.write(transcript.text)
+        else:
+            st.error("Por favor, insira a URL do áudio.")
     else:
-        st.error(f"Falha no download do modelo. Status: {response.status_code}")
-        return False
-
-# Baixar e extrair modelo se não existir
-if not os.path.exists(MODEL_PATH):
-    if not download_and_extract():
-        st.stop()
-
-# Carregar o modelo Vosk
-model = Model(MODEL_PATH)
-
-st.title("🎙️ Gravação e Transcrição de Áudio em Português")
-
-# Captura de áudio
-audio_data = st.audio_recorder()
-
-if audio_data is not None:
-    st.audio(audio_data, format="audio/wav")
-
-    if st.button("Transcrever Áudio"):
-        audio_bytes = io.BytesIO(audio_data)
-
-        # Ler áudio e converter para PCM
-        with sf.SoundFile(audio_bytes) as audio_file:
-            audio = audio_file.read(dtype="int16")
-            sample_rate = audio_file.samplerate
-
-        # Criar reconhecedor do Vosk
-        recognizer = KaldiRecognizer(model, sample_rate)
-        recognizer.AcceptWaveform(audio.tobytes())
-
-        # Obter transcrição
-        result = recognizer.Result()
-        transcript = result.get("text", "")
-
-        st.subheader("📝 Transcrição:")
-        st.write(transcript if transcript else "Nenhuma fala reconhecida.")
+        if audio_file:
+            # Salva o arquivo de áudio temporariamente
+            temp_file = "temp_audio"
+            with open(temp_file, "wb") as f:
+                f.write(audio_file.getbuffer())
+            st.info("Transcrevendo áudio, aguarde...")
+            transcriber = aai.Transcriber()
+            transcript = transcriber.transcribe(temp_file)
+            st.subheader("Transcrição:")
+            st.write(transcript.text)
+            os.remove(temp_file)
+        else:
+            st.error("Por favor, faça o upload de um arquivo de áudio.")
